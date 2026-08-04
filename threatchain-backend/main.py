@@ -149,11 +149,8 @@ CONTRACT_ABI = [
 	}
 ]
 
-# Initialize contract if connected
-try:
-    contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI) if w3.is_connected() else None
-except Exception:
-    contract = None
+# Initialize contract (lazily evaluates connection on request)
+contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI)
 
 # Global variable to hold the loaded model
 model_bundle = None
