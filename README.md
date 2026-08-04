@@ -33,33 +33,61 @@ The system operates in real-time through four interconnected layers: Network, AI
 
 ```mermaid
 graph TD
-    %% Entities
-    A[Attacker / Device]
-    B(Enterprise CICFlowMeter)
-    C{XGBoost AI Engine}
-    D[ALLOW Traffic]
-    E[BLOCK Traffic]
-    F[Windows/Linux Firewall]
-    G[Connection Terminated]
-    H[(Ethereum Smart Contract)]
-    I[React SOC Dashboard]
+    %% Define Styles
+    classDef attacker fill:#ef4444,stroke:#7f1d1d,stroke-width:2px,color:white,font-weight:bold;
+    classDef python fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:white;
+    classDef ai fill:#8b5cf6,stroke:#5b21b6,stroke-width:2px,color:white;
+    classDef blockchain fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:white;
+    classDef frontend fill:#10b981,stroke:#047857,stroke-width:2px,color:white;
+    classDef firewall fill:#3f3f46,stroke:#18181b,stroke-width:2px,color:white;
 
-    %% Flow
-    A -- Sends TCP/UDP Packets --> B
-    B -- Extracts 77 Flow Features --> C
-    C -- Conf Score < 90.0% --> D
-    C -- Conf Score > 90.0% --> E
-    E -- Mitigates --> F
-    F -- Drops IP --> G
-    E -- Anchors SHA-256 Hash --> H
-    H -- Emits ThreatAnchored Event --> I
-    I -- Decodes & Visualizes Attack --> I
+    %% Nodes
+    A["🔴 Attacker / Rogue Device<br>(Termux / Insider Threat)"]:::attacker
+    B["🌐 Host Network Interface<br>(Wi-Fi / Ethernet)"]
+    
+    subgraph "ThreatChain Python Core"
+        C["🐍 live_sniffer.py<br>(Scapy Packet Capture)"]:::python
+        D["⚙️ Feature Extractor<br>(Calculates 77 CIC-IDS Features)"]:::python
+    end
 
-    %% Styling
-    style A fill:#ffcccc,stroke:#ff0000,stroke-width:2px
-    style C fill:#e6f3ff,stroke:#0066cc,stroke-width:2px
-    style H fill:#e6ffe6,stroke:#009933,stroke-width:2px
-    style I fill:#f9e6ff,stroke:#9900cc,stroke-width:2px
+    subgraph "AI Inference Bridge"
+        E["⚡ FastAPI Server<br>(main.py)"]:::ai
+        F["🧠 XGBoost Model<br>(.joblib)"]:::ai
+        G{"⚖️ Gatekeeper Logic<br>(Confidence > 90%)"}:::ai
+    end
+
+    subgraph "Decentralized Ledger"
+        H["⛓️ Hardhat Local Node<br>(RPC: 127.0.0.1:8545)"]:::blockchain
+        I["📜 ThreatChainVault<br>(Smart Contract)"]:::blockchain
+    end
+    
+    J["🛡️ Windows OS Firewall<br>(netsh advfirewall)"]:::firewall
+
+    subgraph "Enterprise SOC Dashboard"
+        K["⚛️ React Frontend<br>(App.jsx)"]:::frontend
+        L["📡 Ethers.js Event Listener<br>(ThreatAnchored Event)"]:::frontend
+        M["🖥️ UI Radar & Telemetry<br>(Live DOM Update)"]:::frontend
+    end
+
+    %% Flow/Connections
+    A -- "Raw UDP/TCP Packets" --> B
+    B -- "Packet Stream" --> C
+    C -- "Groups Traffic by Source IP" --> D
+    D -- "POST /scan-network-log<br>JSON Payload (77 Features)" --> E
+    
+    E -- "Predict Proba" --> F
+    F -- "Returns Score (e.g. 98.8%)" --> E
+    E --> G
+    
+    G -- "Action: BLOCK" --> J
+    J -- "Drops Future Packets" --> B
+    
+    G -- "Anchors Threat Hash & Score" --> H
+    H --> I
+    
+    I -- "Emits 'ThreatAnchored' Event" --> L
+    L --> K
+    K --> M
 ```
 
 ---
@@ -109,10 +137,9 @@ python -c "import socket; target='YOUR_PC_IP'; s=socket.socket(socket.AF_INET, s
 
 ## 🚀 Installation & Setup
 
-1. **Start Blockchain**: `cd threatchain-contracts && npx hardhat node`
-2. **Start API**: `cd threatchain-backend && .\venv\Scripts\activate && uvicorn main:app --host 0.0.0.0 --port 8000`
-3. **Start UI**: `cd threatchain-frontend && npm run dev`
-4. **Start Sniffer**: Open an *Administrator* PowerShell, `cd ThreatChain`, and run `.\threatchain-backend\venv\Scripts\python.exe live_sniffer.py`
+1. **Unified Startup**: Open a terminal in the root directory and run `npm run start-all`. This boots up the Local Blockchain, the AI Backend, and the React Frontend simultaneously.
+2. **Deploy Smart Contract**: Open a second terminal and run `cd threatchain-contracts && npx hardhat run scripts/deploy.js --network localhost`
+3. **Start Sniffer**: Open an *Administrator* PowerShell, and run `.\threatchain-backend\venv\Scripts\python.exe live_sniffer.py` (or use `insider_threat_sim.py` for a local test).
 
 ---
 
