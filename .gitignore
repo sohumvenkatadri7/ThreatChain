@@ -1,0 +1,22 @@
+# Ignore Virtual Environments
+venv/
+env/
+.env
+
+# Ignore Node Modules
+node_modules/
+threatchain-frontend/node_modules/
+threatchain-contracts/node_modules/
+
+# Ignore Python Caches
+__pycache__/
+*.pyc
+
+# Ignore massive datasets if any exist
+*.csv
+*.pcap
+
+# Ignore local Hardhat network state
+threatchain-contracts/artifacts/
+threatchain-contracts/cache/
+threatchain-contracts/ignition/deployments/chain-31337/
