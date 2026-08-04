@@ -90,6 +90,91 @@ graph TD
     K --> M
 ```
 
+### 2. Sequence Flow Diagram (Attack Mitigation Lifecycle)
+*This diagram illustrates the chronological communication between the microservices from the exact millisecond an attack begins to the moment the React UI updates.*
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Hacker as Attacker (Termux)
+    participant NIC as Network Interface
+    participant Py as Python Sniffer
+    participant FastAPI as AI Backend
+    participant XGB as XGBoost Model
+    participant OS as Windows Firewall
+    participant Web3 as Hardhat Blockchain
+    participant React as Enterprise UI
+
+    Hacker->>NIC: Unleash UDP Flood (> 1500 pkts/s)
+    NIC->>Py: Captures packets via Scapy
+    Py->>Py: Groups by IP & Calculates 77 Features
+    Py->>FastAPI: POST /scan-network-log (JSON Array)
+    FastAPI->>XGB: execute predict_proba(features)
+    XGB-->>FastAPI: returns 98.8% Confidence
+    
+    rect rgb(50, 0, 0)
+        Note over FastAPI, OS: CRITICAL MITIGATION (Confidence > 90%)
+        FastAPI->>OS: Execute `netsh advfirewall action=block`
+        OS-->>NIC: Drops all future packets from Attacker IP
+    end
+
+    rect rgb(0, 50, 0)
+        Note over FastAPI, React: IMMUTABLE ANCHORING
+        FastAPI->>Web3: logThreat(Hash, 9880, "BLOCK")
+        Web3-->>FastAPI: Transaction Receipt
+        Web3-->>React: Emits `ThreatAnchored` Event
+        React->>React: Triggers CSS Radar Pulse (Red Alert)
+        React->>React: Updates Ledger Table
+    end
+```
+
+### 3. Gatekeeper State Machine (AI Decision Logic)
+*This diagram breaks down the algorithmic logic of the FastAPI Gatekeeper.*
+
+```mermaid
+stateDiagram-v2
+    [*] --> Ingested: Raw Packet Stream
+    
+    Ingested --> Extraction: Calculate 77 Metrics
+    Extraction --> AI_Inference: XGBoost Prediction
+    
+    state AI_Inference {
+        direction LR
+        Analyze --> Confidence_Score
+    }
+    
+    AI_Inference --> Normal_Traffic: Score < 50%
+    AI_Inference --> Suspicious: Score 50% - 90%
+    AI_Inference --> Critical: Score > 90%
+    
+    Normal_Traffic --> [*]: ALLOW
+    
+    Suspicious --> Anchor_Warning: Log to Web3
+    Anchor_Warning --> [*]: REVIEW
+    
+    Critical --> Firewall_Block: Execute `netsh`
+    Firewall_Block --> Anchor_Critical: Log to Web3
+    Anchor_Critical --> [*]: BLOCK
+```
+
+### 4. Blockchain Data Structure (Entity Relationship)
+*This diagram shows exactly how data is structured and stored immutably on the Ethereum ledger.*
+
+```mermaid
+erDiagram
+    ThreatChainVault ||--o{ ThreatLog : anchors
+    ThreatChainVault {
+        address admin
+        uint256 totalThreatCount
+    }
+    ThreatLog {
+        string threatId "SHA-256 Hash of 77 Features"
+        uint256 confidence "Scaled AI Score (e.g., 9880)"
+        string actionTaken "BLOCK / REVIEW"
+        uint256 timestamp "Unix Epoch Block Time"
+    }
+```
+
 ---
 
 ## ⚙️ How It Works (Technical Breakdown)
