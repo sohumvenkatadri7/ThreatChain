@@ -113,3 +113,24 @@ python -c "import socket; target='YOUR_PC_IP'; s=socket.socket(socket.AF_INET, s
 2. **Start API**: `cd threatchain-backend && .\venv\Scripts\activate && uvicorn main:app --host 0.0.0.0 --port 8000`
 3. **Start UI**: `cd threatchain-frontend && npm run dev`
 4. **Start Sniffer**: Open an *Administrator* PowerShell, `cd ThreatChain`, and run `.\threatchain-backend\venv\Scripts\python.exe live_sniffer.py`
+
+---
+
+## 🔮 Future Implementations (MVP to Enterprise Product)
+
+To evolve ThreatChain from a research-grade MVP into a commercial, enterprise-ready cybersecurity product, the following roadmap is planned:
+
+### 1. High-Performance Network Agent (eBPF / Rust)
+While the current Python `scapy` sniffer is excellent for demonstrations, a production environment requires processing 10+ Gbps of traffic without CPU bottlenecks. The future implementation will replace the Python agent with a compiled **Rust** or **eBPF (Extended Berkeley Packet Filter)** agent that calculates flow metrics directly within the Linux kernel for zero-overhead packet inspection.
+
+### 2. Layer 2 Public Blockchain Integration
+Currently, the system anchors data to a local Hardhat node. To provide true cryptographic trust to third-party auditors and insurance companies, the smart contracts will be migrated to a fast, low-fee public Layer 2 network such as **Polygon** or **Arbitrum**. This ensures global immutability while keeping gas costs negligible.
+
+### 3. Multi-Tenant SaaS Dashboard
+The React dashboard will be expanded into a full commercial SaaS platform:
+*   **Geographic IP Mapping**: Integrating GeoIP databases to plot attacking IPs on an interactive global threat map.
+*   **Live Telemetry**: Real-time charts rendering of network velocity vs. AI confidence thresholds.
+*   **RBAC Authentication**: Secure login portals allowing multiple enterprise clients to manage their own specific server agents from a unified control plane.
+
+---
+*Built for the future of decentralized cybersecurity.*
