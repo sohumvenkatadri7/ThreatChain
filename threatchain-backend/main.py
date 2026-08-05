@@ -8,6 +8,16 @@ import numpy as np
 import uvicorn
 from web3 import Web3
 import hashlib
+import shap
+
+FEATURE_NAMES = [
+    "Destination Port", "Protocol", "Timestamp", "Flow Duration", 
+    "Total Fwd Packets", "Total Backward Packets", "Total Length of Fwd Packets",
+    "Total Length of Bwd Packets", "Fwd Packet Length Max", "Fwd Packet Length Min",
+    "Flow Bytes/s", "Flow Packets/s"
+] + [f"Network Anomaly Feature {i}" for i in range(12, 77)]
+
+threat_shap_cache = {}
 
 # Initialize the FastAPI app
 app = FastAPI(title="ThreatChain AI Bridge", version="1.0")
@@ -155,6 +165,7 @@ contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI)
 # Global variable to hold the loaded model
 model_bundle = None
 xgb_model = None
+shap_explainer = None
 
 @app.on_event("startup")
 def load_model():
@@ -164,7 +175,9 @@ def load_model():
         print("[*] Booting up ThreatChain AI Core...")
         model_bundle = joblib.load("threathchain_xgboost.joblib")
         xgb_model = model_bundle['model']
-        print("[*] Model loaded successfully and ready for inference.")
+        global shap_explainer
+        shap_explainer = shap.TreeExplainer(xgb_model)
+        print("[*] Model and SHAP Explainer loaded successfully.")
     except Exception as e:
         print(f"[!] Critical Error loading model: {e}")
 
@@ -209,9 +222,27 @@ def scan_network_log(log: NetworkLog):
         status = "NORMAL TRAFFIC: No Anomalies Detected"
         action = "ALLOW"
 
-    # 4. Blockchain Anchoring for Critical/Review Threats
+    # 4. Blockchain Anchoring and XAI (SHAP)
     tx_hash = None
+    top_features = []
+    
     if action in ["BLOCK", "REVIEW"] and contract:
+        # Calculate SHAP values
+        try:
+            shap_values = shap_explainer.shap_values(input_data)
+            sv = shap_values[1][0] if isinstance(shap_values, list) else shap_values[0]
+            abs_sv = np.abs(sv)
+            top_indices = np.argsort(abs_sv)[-3:][::-1]
+            
+            for idx in top_indices:
+                top_features.append({
+                    "feature": FEATURE_NAMES[idx] if idx < len(FEATURE_NAMES) else f"Feature {idx}",
+                    "impact": round(float(abs_sv[idx]), 4)
+                })
+        except Exception as shap_err:
+            print(f"[!] SHAP Error: {shap_err}")
+
+        # Blockchain Anchoring
         try:
             payload_string = ''.join(map(str, log.features))
             threat_id = hashlib.sha256(payload_string.encode()).hexdigest()[:16]
@@ -222,14 +253,29 @@ def scan_network_log(log: NetworkLog):
                 threat_id, scaled_confidence, action
             ).transact({'from': account})
             tx_hash = w3.to_hex(tx_hash)
+            
+            # Cache the SHAP features for the PDF forensic audit
+            threat_shap_cache[threat_id] = {
+                "top_features": top_features,
+                "tx_hash": tx_hash
+            }
+            print(f"[*] Threat {threat_id} anchored. Top features: {top_features}")
         except Exception as blockchain_err:
             print(f"[!] Blockchain anchoring warning: {blockchain_err}")
 
     # 5. Return the standardized JSON response
     return {
         "status": "success",
-        "confidence_score": round(malicious_prob, 4),
+        "confidence": round(malicious_prob, 4),
+        "mitigation_required": True if action == "BLOCK" else False,
         "threat_status": status,
         "action": action,
-        "blockchain_tx": tx_hash
+        "blockchain_tx": tx_hash,
+        "top_contributing_features": top_features
     }
+
+@app.get("/threat-details/{threat_id}")
+def get_threat_details(threat_id: str):
+    if threat_id in threat_shap_cache:
+        return {"threat_id": threat_id, "details": threat_shap_cache[threat_id]}
+    return {"error": "Not found in active cache"}

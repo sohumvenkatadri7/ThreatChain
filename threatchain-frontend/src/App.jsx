@@ -3,8 +3,10 @@ import { ethers } from 'ethers';
 import { 
   Shield, ShieldAlert, ShieldCheck, Activity, Database, Clock, 
   Fingerprint, Network, Cpu, Globe, Trash2, Search, Bell, 
-  Settings, User, LayoutDashboard, BarChart3, Lock, Zap, Server
+  Settings, User, LayoutDashboard, BarChart3, Lock, Zap, Server, Download
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import ThreatChainVaultABI from './ThreatChainVaultABI.json';
 import './index.css';
 
@@ -84,6 +86,58 @@ function App() {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateForensicPDF = async (threatRecord) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/threat-details/${threatRecord.id}`);
+      const data = await response.json();
+      
+      let features = [];
+      if (data.details && data.details.top_features) {
+        features = data.details.top_features;
+      }
+
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFillColor(15, 23, 42); // Slate 900
+      doc.rect(0, 0, 210, 30, 'F');
+      doc.setTextColor(239, 68, 68); // Red 500
+      doc.setFontSize(22);
+      doc.text("ThreatChain Forensic Audit & Incident Report", 14, 20);
+      
+      // Subtitle
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.text("Incident Metadata", 14, 45);
+      
+      // Metadata
+      doc.setFontSize(11);
+      doc.text(`Generated Timestamp: ${new Date().toLocaleString()}`, 14, 55);
+      doc.text(`Isolated Attacker IP: ${hashToIp(threatRecord.id)}`, 14, 62);
+      doc.text(`Blockchain Threat Hash: ${threatRecord.id}`, 14, 69);
+      doc.text(`AI Confidence Score: ${threatRecord.confidence}%`, 14, 76);
+      doc.text(`Action Taken: ${threatRecord.action}`, 14, 83);
+      
+      // Table
+      if (features.length > 0) {
+        doc.autoTable({
+          startY: 95,
+          head: [['XAI Feature Name', 'SHAP Impact Magnitude']],
+          body: features.map(f => [f.feature, f.impact.toString()]),
+          headStyles: { fillColor: [239, 68, 68] },
+          theme: 'grid'
+        });
+      } else {
+        doc.text("XAI Features: Not available in active cache.", 14, 95);
+      }
+      
+      doc.save(`ThreatChain_Audit_${threatRecord.id.substring(0,6)}.pdf`);
+    } catch (err) {
+      console.error("PDF Generation failed", err);
+      alert("Failed to fetch SHAP details. Is the AI Backend running?");
     }
   };
 
@@ -263,14 +317,15 @@ function App() {
                     <th>Identified Vector</th>
                     <th>XGBoost Confidence</th>
                     <th>Firewall Action</th>
+                    <th>Forensic Audit</th>
                     <th style={{textAlign: 'right'}}>Timestamp</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan="6" className="table-message">Syncing with Smart Contract...</td></tr>
+                    <tr><td colSpan="7" className="table-message">Syncing with Smart Contract...</td></tr>
                   ) : threats.length === 0 ? (
-                    <tr><td colSpan="6" className="table-message">No malicious activity detected.</td></tr>
+                    <tr><td colSpan="7" className="table-message">No malicious activity detected.</td></tr>
                   ) : (
                     threats.map((threat, index) => (
                       <tr key={index} className="fade-in-row">
@@ -285,6 +340,16 @@ function App() {
                           <span className={`badge ${threat.action === 'BLOCK' ? 'badge-danger' : 'badge-safe'}`}>
                             {threat.action}
                           </span>
+                        </td>
+                        <td>
+                          <button 
+                            className="icon-button" 
+                            style={{color: '#8b5cf6', fontSize: '13px', padding: '4px 8px'}}
+                            onClick={() => generateForensicPDF(threat)}
+                            title="Export PDF Audit"
+                          >
+                            <Download size={14} style={{marginRight: '4px', verticalAlign: 'middle'}}/> Export
+                          </button>
                         </td>
                         <td className="time-cell">{threat.time}</td>
                       </tr>
