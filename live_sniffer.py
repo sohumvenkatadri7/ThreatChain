@@ -144,11 +144,11 @@ def flow_analyzer():
                 ]
 
             try:
-                response = requests.post(API_URL, json={"features": payload}, timeout=1)
+                response = requests.post(API_URL, json={"features": payload, "src_ip": ip}, timeout=1)
                 if response.status_code == 200:
                     result = response.json()
                     action = result.get("action")
-                    score = result.get("confidence_score")
+                    score = result.get("confidence", result.get("confidence_score", 0))
                     score_pct = f"{(score * 100):.1f}%"
                     curr_time_str = datetime.now().strftime("%H:%M:%S")
                     

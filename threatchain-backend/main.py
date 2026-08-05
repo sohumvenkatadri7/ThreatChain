@@ -185,6 +185,7 @@ def load_model():
 class NetworkLog(BaseModel):
     # For the MVP, we accept a list of 77 numeric features matching the dataset
     features: List[float]
+    src_ip: str = "Unknown"
 
 @app.post("/scan-network-log")
 def scan_network_log(log: NetworkLog):
@@ -245,7 +246,8 @@ def scan_network_log(log: NetworkLog):
         # Blockchain Anchoring
         try:
             payload_string = ''.join(map(str, log.features))
-            threat_id = hashlib.sha256(payload_string.encode()).hexdigest()[:16]
+            base_hash = hashlib.sha256(payload_string.encode()).hexdigest()[:10]
+            threat_id = f"{log.src_ip}-{base_hash}"
             scaled_confidence = int(malicious_prob * 10000)
             
             account = w3.eth.accounts[0]

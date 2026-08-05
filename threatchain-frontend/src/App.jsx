@@ -5,8 +5,8 @@ import {
   Fingerprint, Network, Cpu, Globe, Trash2, Search, Bell, 
   Settings, User, LayoutDashboard, BarChart3, Lock, Zap, Server, Download
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import ThreatChainVaultABI from './ThreatChainVaultABI.json';
 import './index.css';
 
@@ -16,6 +16,10 @@ const RPC_URL = "http://127.0.0.1:8545";
 
 const hashToIp = (hash) => {
   if (!hash) return "Unknown";
+  // Extract real IP if it exists in the new format (e.g. 192.168.0.99-abc123hash)
+  if (hash.includes('-')) return hash.split('-')[0];
+  
+  // Fallback to pseudo-IP logic for old hashes
   const cleanHash = hash.replace('0x', '');
   const p1 = parseInt(cleanHash.substring(0, 2), 16) % 255;
   const p2 = parseInt(cleanHash.substring(2, 4), 16) % 255;
@@ -62,6 +66,11 @@ function App() {
         setTimeout(() => setLivePulse(false), 2000); // 2 second red alert
         fetchThreats(contract);
       });
+
+      // Fallback Polling Mechanism for local Hardhat node
+      setInterval(() => {
+        fetchThreats(contract);
+      }, 2000);
     } catch (err) {
       console.error("Failed to connect", err);
       setIsConnected(false);
@@ -95,8 +104,10 @@ function App() {
       const data = await response.json();
       
       let features = [];
-      if (data.details && data.details.top_features) {
-        features = data.details.top_features;
+      let txHash = "Not available (Legacy)";
+      if (data.details) {
+        if (data.details.top_features) features = data.details.top_features;
+        if (data.details.tx_hash) txHash = data.details.tx_hash;
       }
 
       const doc = new jsPDF();
@@ -117,13 +128,13 @@ function App() {
       doc.setFontSize(11);
       doc.text(`Generated Timestamp: ${new Date().toLocaleString()}`, 14, 55);
       doc.text(`Isolated Attacker IP: ${hashToIp(threatRecord.id)}`, 14, 62);
-      doc.text(`Blockchain Threat Hash: ${threatRecord.id}`, 14, 69);
+      doc.text(`Ethereum TxHash: ${txHash}`, 14, 69);
       doc.text(`AI Confidence Score: ${threatRecord.confidence}%`, 14, 76);
       doc.text(`Action Taken: ${threatRecord.action}`, 14, 83);
       
       // Table
       if (features.length > 0) {
-        doc.autoTable({
+        autoTable(doc, {
           startY: 95,
           head: [['XAI Feature Name', 'SHAP Impact Magnitude']],
           body: features.map(f => [f.feature, f.impact.toString()]),
@@ -137,7 +148,7 @@ function App() {
       doc.save(`ThreatChain_Audit_${threatRecord.id.substring(0,6)}.pdf`);
     } catch (err) {
       console.error("PDF Generation failed", err);
-      alert("Failed to fetch SHAP details. Is the AI Backend running?");
+      alert(`Export Failed: ${err.message}. If you just restarted the server, run a new attack first so the SHAP cache generates!`);
     }
   };
 
@@ -157,16 +168,7 @@ function App() {
       
       <nav className="nav-menu">
         <div className="nav-group">Main Menu</div>
-        <a href="#" className="nav-item active"><LayoutDashboard size={18}/> Dashboard</a>
-        <a href="#" className="nav-item"><BarChart3 size={18}/> Analytics & Reports</a>
-        <a href="#" className="nav-item"><Activity size={18}/> Live Telemetry</a>
-        
-        <div className="nav-group" style={{marginTop: '20px'}}>Security & Trust</div>
-        <a href="#" className="nav-item"><Lock size={18}/> Firewall Policies</a>
-        <a href="#" className="nav-item"><Database size={18}/> Blockchain Ledger</a>
-        
-        <div className="nav-group" style={{marginTop: '20px'}}>System</div>
-        <a href="#" className="nav-item"><Settings size={18}/> Configurations</a>
+        <a href="#" className="nav-item active"><LayoutDashboard size={18}/> Main Dashboard</a>
       </nav>
 
       <div className="sidebar-footer">
@@ -181,18 +183,12 @@ function App() {
   const Topbar = () => (
     <header className="topbar">
       <div className="search-container">
-        <Search size={18} className="search-icon" />
-        <input type="text" placeholder="Search IP, TxHash, or Event ID..." className="search-input" />
       </div>
       <div className="topbar-actions">
         <button className="icon-button" onClick={handleClearLogs} title="Clear Display">
-          <Trash2 size={18} />
+          <Trash2 size={18} /> <span style={{fontSize: '13px', marginLeft: '5px'}}>Clear</span>
         </button>
-        <button className="icon-button">
-          <Bell size={18} />
-          {threats.length > 0 && <span className="notification-badge"></span>}
-        </button>
-        <div className="user-profile">
+        <div className="user-profile" style={{marginLeft: '20px'}}>
           <div className="avatar"><User size={16} /></div>
           <div className="user-details">
             <span className="user-name">Admin User</span>
