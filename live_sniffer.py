@@ -1,4 +1,5 @@
 import os
+import random
 import requests
 import ctypes
 import sys
@@ -6,6 +7,12 @@ import time
 import threading
 from scapy.all import sniff, IP, TCP, UDP
 from datetime import datetime
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 os.system("")
 
@@ -44,8 +51,22 @@ def print_header():
     print(f"{Colors.BOLD}{'TIME':<10} | {'SOURCE IP':<15} | {'PKTS/SEC':<10} | {'BYTES/SEC':<10} | {'AI SCORE':<10} | {'ACTION'}{Colors.RESET}")
     print("-" * 84)
 
+import socket
+
+def get_whitelisted_ips():
+    ips = {"127.0.0.1", "0.0.0.0", "localhost", "192.168.0.1", "192.168.1.1"}
+    try:
+        hostname = socket.gethostname()
+        for ip in socket.gethostbyname_ex(hostname)[2]:
+            ips.add(ip)
+    except Exception:
+        pass
+    return ips
+
+WHITELISTED_IPS = get_whitelisted_ips()
+
 def block_ip(ip_address):
-    if ip_address in blocked_ips:
+    if ip_address in blocked_ips or ip_address in WHITELISTED_IPS:
         return
     print(f"\n{Colors.RED}{Colors.BOLD}[!!!] EXECUTING OS-LEVEL FIREWALL MITIGATION ON: {ip_address}{Colors.RESET}")
     cmd = f'netsh advfirewall firewall add rule name="ThreatChain Block {ip_address}" dir=in action=block remoteip={ip_address} >nul 2>&1'
@@ -59,8 +80,10 @@ def packet_callback(packet):
         src_ip = packet[IP].src
         dst_ip = packet[IP].dst
         
-        # Ignore localhost traffic
-        if src_ip == "127.0.0.1" or dst_ip == "127.0.0.1":
+        # Whitelist protection: Never capture localhost, own machine IP, router, or broadcasts
+        if src_ip in WHITELISTED_IPS:
+            return
+        if src_ip.startswith("224.") or src_ip.startswith("239.") or src_ip.endswith(".255") or src_ip.endswith(".1"):
             return
             
         pkt_len = len(packet)
@@ -110,39 +133,18 @@ def flow_analyzer():
             pkts_per_sec = data["packets"] / duration
             bytes_per_sec = data["bytes"] / duration
             
-            # Base benign array (fills in the advanced statistical variances we can't calculate in python)
-            payload = [
-                80, 6, 120, 5, 5, 100.0, 50.0, 10.0, 0.5, 2.0, 
-                5000, 10.0, 2.0, 50.0, 10.0, 5.0, 0, 10.0, 20.0, 100.0, 
-                5.0, 2.0, 200.0, 5.0, 2.0, 100.0, 200.0, 2.0, 10.0, 20.0, 
-                2.0, 50.0, 5.0, 10.0, 2.0, 200.0, 2.0, 100.0, 10.0, 50.0, 
-                50.0, 20.0, 10.0, 200.0, 2.0, 20.0, 10.0, 100.0, 2.0, 200.0, 
-                100.0, 10.0, 1.0, 10.0, 20.0, 20.0, 20.0, 200.0, 20.0, 0.5, 
-                5.0, 200.0, 2.0, 0.01, 2.0, 20.0, 2.0, 100.0, 10.0, 1.0, 
-                100.0, 50.0, 2.0, 0.5, 0.5, 100.0, 2.0
-            ]
+            # Base benign array (Must be mostly zeros so the AI doesn't flag random noise as an anomaly)
+            payload = [0.0] * 47
             
-            # INJECT REAL AUTHENTIC DATA
-            payload[0] = data["port"]
-            payload[1] = data["protocol"]
-            payload[3] = data["packets"] # Total Fwd Packets
-            payload[10] = bytes_per_sec  # Flow Bytes/s
-            payload[11] = pkts_per_sec   # Flow Packets/s
+            # INJECT REAL AUTHENTIC DATA into the exact indices expected by the 47-feature model
+            payload[4] = pkts_per_sec                                        # flow packets/s
+            payload[32] = bytes_per_sec                                      # flow bytes/s
+            payload[9] = float(duration * 1_000_000)                         # flow duration (us)
+            payload[13] = float(data["bytes"] / max(data["packets"], 1))     # packet length mean
+            payload[7] = float((duration * 1_000_000) / max(data["packets"], 1)) # flow iat mean
+            payload[42] = pkts_per_sec                                       # fwd packets/s
+            payload[29] = float(data["packets"] * 20)                        # fwd header length
             
-            # The XGBoost AI uses a complex decision tree. Just seeing high bytes/sec isn't enough;
-            # it expects corresponding anomalies in Flow Duration and Backward Packets to confidently flag a DDoS.
-            if pkts_per_sec > 500:
-                payload = [
-                    data["port"], data["protocol"], 800000, 50000, 80000, 149.7, 61.5, 40.8, 0.7, 8.2, 
-                    999999, 60.5, 16.1, 239.4, 44.2, 38.4, 1, 53.4, 96.5, 453.5, 
-                    25.4, 13.4, 904.3, 18.0, 6.0, 482.3, 984.2, 6.4, 44.6, 107.1, 
-                    6.5, 361.2, 22.1, 70.3, 9.9, 912.8, 5.9, 552.4, 33.6, 121.4, 
-                    124.8, 74.7, 56.3, 961.7, 7.9, 95.9, 64.2, 690.3, 7.8, 917.5, 
-                    370.4, 51.8, 3.0, 49.6, 73.3, 88.3, 93.8, 765.0, 92.2, 1.4, 
-                    16.2, 992.0, 8.6, 0.06, 9.0, 91.2, 6.2, 425.3, 38.7, 4.4, 
-                    358.2, 206.7, 7.1, 0.7, 1.6, 247.4, 5.5
-                ]
-
             try:
                 response = requests.post(API_URL, json={"features": payload, "src_ip": ip}, timeout=1)
                 if response.status_code == 200:
