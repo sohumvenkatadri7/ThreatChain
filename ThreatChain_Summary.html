@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; color: #333; line-height: 1.6; }
+    h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+    h2 { color: #2980b9; margin-top: 30px; }
+    .highlight { background-color: #f1f8ff; padding: 15px; border-left: 5px solid #3498db; margin: 20px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background-color: #f2f2f2; }
+</style>
+</head>
+<body>
+    <h1>ThreatChain: Executive Summary & Explanation Guide</h1>
+    <p><strong>Authors:</strong> Sohum Venkatadri, Praneeth Gowda K, Prem Gowda H D, Namratha N</p>
+
+    <h2>1. The Problem We Are Solving</h2>
+    <p>Traditional Security Operations Centers (SOCs) rely on centralized logs, which can be hacked or altered by an insider threat to hide their tracks. Additionally, when a massive DDoS attack hits, traditional blockchain security solutions fail because the network gets too congested to record the threat in real time.</p>
+
+    <h2>2. Our Solution: ThreatChain</h2>
+    <p>ThreatChain is a hybrid architecture that <strong>decouples (separates)</strong> the AI detection from the blockchain recording. It uses an ultra-fast XGBoost AI model to detect threats and block them at the Operating System level in milliseconds, while sending a secure cryptographic hash of the threat to the Ethereum blockchain in the background.</p>
+
+    <h2>3. How the System Works (The 4 Layers)</h2>
+    <ul>
+        <li><strong>Ingestion Layer:</strong> Sniffs network traffic using Python (Scapy) and extracts 77 specific features defined by the CIC-IDS2018 dataset.</li>
+        <li><strong>AI Inference Engine:</strong> Uses an XGBoost model optimized with a specific mathematical loss function (logloss) to predict if the traffic is malicious.</li>
+        <li><strong>Gatekeeper Logic:</strong> If the AI is >90% confident it's a threat, it triggers two things simultaneously (Parallel Dispatch).</li>
+        <li><strong>Mitigation & Ledger Layer:</strong> It immediately runs a Windows Firewall (<code>netsh</code>) command to block the attacker's IP, while simultaneously emitting a low-cost <code>LOG</code> event to the Ethereum Smart Contract to permanently record the threat.</li>
+    </ul>
+
+    <div class="highlight">
+        <h2>4. Key Results to Highlight to Examiners</h2>
+        <ul>
+            <li><strong>Accuracy:</strong> 99.24% detection accuracy with less than 0.01% False Positive Rate.</li>
+            <li><strong>Speed (Sub-second mitigation):</strong> The entire process from packet sniffing to firewall blocking takes only <strong>~48 milliseconds</strong>.</li>
+            <li><strong>Cost Efficiency:</strong> By using Ethereum event logs (<code>LOG</code> opcode) instead of state storage (<code>SSTORE</code>), we reduced the blockchain gas fees by over 90%.</li>
+        </ul>
+    </div>
+
+    <h2>5. How to Map the Paper to Your Code</h2>
+    <table>
+        <tr><th>Paper Concept</th><th>Your GitHub Code</th></tr>
+        <tr><td>Network Ingestion</td><td><code>live_sniffer.py</code></td></tr>
+        <tr><td>XGBoost AI Model</td><td><code>kaggle_ids2018_xgboost.py</code></td></tr>
+        <tr><td>>90% Gatekeeper Logic</td><td><code>evaluate_threat_confidence()</code> function</td></tr>
+        <tr><td>Ethereum Connection</td><td><code>swarm_node.py</code> (Web3 event listener)</td></tr>
+        <tr><td>Firewall Blocking</td><td><code>os.system('netsh advfirewall...')</code> in Node B</td></tr>
+    </table>
+</body>
+</html>
