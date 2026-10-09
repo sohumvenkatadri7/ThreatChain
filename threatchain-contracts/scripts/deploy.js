@@ -7,7 +7,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function main() {
-  console.log("Deploying ThreatChainVault...");
+  console.log("Checking connection to Hardhat node...");
+  let connected = false;
+  for (let i = 0; i < 15; i++) {
+    try {
+      const blockNumber = await hre.ethers.provider.getBlockNumber();
+      console.log(`Connected to Hardhat node (Block #${blockNumber})`);
+      connected = true;
+      break;
+    } catch (e) {
+      process.stdout.write(`Waiting for Hardhat node to accept connections (${i + 1}/15)...\r`);
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+
+  if (!connected) {
+    throw new Error("\n❌ Could not connect to Hardhat node on http://127.0.0.1:8545. Please ensure 'npx hardhat node' is running.");
+  }
+
+  console.log("\nDeploying ThreatChainVault...");
   const Vault = await hre.ethers.getContractFactory("ThreatChainVault");
   const vault = await Vault.deploy();
   await vault.waitForDeployment();
